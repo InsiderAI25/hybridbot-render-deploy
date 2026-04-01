@@ -1,3 +1,9 @@
-
 flask
 gunicorn
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-cloud-bigquery
+google-cloud-pubsub
+google-generativeai
