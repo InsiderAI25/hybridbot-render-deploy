@@ -5,4 +5,5 @@ google-cloud-bigquery==3.27.0
 google-cloud-resource-manager==1.13.1
 google-cloud-iam==2.16.0
 google-cloud-run==0.10.13
+google-cloud-service-usage==1.12.1
 google-api-core==2.22.0

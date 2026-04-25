@@ -559,3 +559,229 @@ def admin_recommend_cleanup(caller: str = Depends(_require_admin)) -> dict[str, 
         },
         "timestamp": _now_iso(),
     }
+
+
+# ──────────────────── Privileged: bootstrap a project ───────────────
+# This endpoint enables APIs, creates a runtime SA, and grants a curated
+# set of empire IAM bindings on a target project. It is read+WRITE — a
+# real ops endpoint for getting genesis-ai-staging / dev / sandbox /
+# domain-control online without 17 manual gcloud invocations.
+#
+# Safety:
+#   * caller must be in ADMIN_AGENTS (verified ID token)
+#   * caller must include {"confirm":"I_ACKNOWLEDGE"} in the body so a
+#     curl-typo can't trigger IAM mutations
+#   * every step is audited to tma_audit_log with severity=warn
+#   * all operations are idempotent (already-enabled APIs / existing SAs
+#     are no-op, returning {step: "<name>", status: "already-present"})
+
+
+# Standard APIs every empire project needs to be useful.
+_STANDARD_APIS = [
+    "run.googleapis.com",
+    "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "serviceusage.googleapis.com",
+    "secretmanager.googleapis.com",
+    "logging.googleapis.com",
+    "monitoring.googleapis.com",
+    "bigquery.googleapis.com",
+    "pubsub.googleapis.com",
+    "aiplatform.googleapis.com",
+    "cloudkms.googleapis.com",
+]
+# Optional, opt-in per request. domain-control needs DNS, billing-survival
+# needs billing reads, etc.
+_OPTIONAL_APIS = {
+    "dns": "dns.googleapis.com",
+    "billing": "cloudbilling.googleapis.com",
+    "drive": "drive.googleapis.com",
+    "gmail": "gmail.googleapis.com",
+    "kms": "cloudkms.googleapis.com",
+}
+
+
+def _enable_apis(project_id: str, apis: list[str]) -> list[dict[str, Any]]:
+    from google.cloud import service_usage_v1
+
+    client = service_usage_v1.ServiceUsageClient()
+    parent = f"projects/{project_id}"
+    results: list[dict[str, Any]] = []
+    for api in apis:
+        name = f"{parent}/services/{api}"
+        try:
+            current = client.get_service(name=name)
+            if current.state.name == "ENABLED":
+                results.append({"api": api, "status": "already-enabled"})
+                continue
+            op = client.enable_service(name=name)
+            op.result(timeout=120)
+            results.append({"api": api, "status": "enabled"})
+        except Exception as exc:
+            results.append({"api": api, "status": "error", "error": str(exc)})
+    return results
+
+
+def _ensure_runtime_sa(project_id: str, sa_account_id: str,
+                       display_name: str) -> dict[str, Any]:
+    from google.cloud import iam_admin_v1
+    from google.cloud.iam_admin_v1 import types as iam_types
+
+    client = iam_admin_v1.IAMClient()
+    expected_email = f"{sa_account_id}@{project_id}.iam.gserviceaccount.com"
+    full_name = f"projects/{project_id}/serviceAccounts/{expected_email}"
+    try:
+        existing = client.get_service_account(name=full_name)
+        return {"status": "already-present", "email": existing.email}
+    except Exception:
+        pass
+
+    try:
+        request = iam_types.CreateServiceAccountRequest(
+            name=f"projects/{project_id}",
+            account_id=sa_account_id,
+            service_account=iam_types.ServiceAccount(display_name=display_name),
+        )
+        sa = client.create_service_account(request=request)
+        return {"status": "created", "email": sa.email}
+    except Exception as exc:
+        return {"status": "error", "error": str(exc)}
+
+
+def _grant_project_role(project_id: str, member: str, role: str) -> dict[str, Any]:
+    """Idempotent IAM-policy add at the project level."""
+    from google.cloud import resourcemanager_v3
+    from google.iam.v1 import iam_policy_pb2, policy_pb2
+
+    client = resourcemanager_v3.ProjectsClient()
+    resource = f"projects/{project_id}"
+    try:
+        policy = client.get_iam_policy(
+            request=iam_policy_pb2.GetIamPolicyRequest(resource=resource)
+        )
+    except Exception as exc:
+        return {"role": role, "member": member, "status": "error",
+                "error": f"get_iam_policy: {exc}"}
+
+    for binding in policy.bindings:
+        if binding.role == role and member in binding.members:
+            return {"role": role, "member": member, "status": "already-bound"}
+
+    new_binding = policy_pb2.Binding(role=role, members=[member])
+    policy.bindings.append(new_binding)
+    try:
+        client.set_iam_policy(
+            request=iam_policy_pb2.SetIamPolicyRequest(resource=resource, policy=policy)
+        )
+        return {"role": role, "member": member, "status": "granted"}
+    except Exception as exc:
+        return {"role": role, "member": member, "status": "error",
+                "error": f"set_iam_policy: {exc}"}
+
+
+@app.post("/admin/bootstrap-project")
+async def admin_bootstrap_project(request: Request,
+                                  caller: str = Depends(_require_admin)) -> dict[str, Any]:
+    """Bring a fresh project online for empire use.
+
+    Body:
+      {
+        "project_id":   "genesis-ai-staging",
+        "runtime_sa":   "staging-runtime",          # local part only
+        "display_name": "Genesis Staging Runtime",
+        "extra_apis":   ["dns", "billing"],         # optional
+        "extra_bindings": [                         # optional
+          {"member": "serviceAccount:open-brain@genesis-ai-prod-7x2k.iam.gserviceaccount.com",
+           "role": "roles/run.invoker"}
+        ],
+        "confirm": "I_ACKNOWLEDGE"
+      }
+
+    Returns per-step status. Idempotent.
+    """
+    body = await request.json()
+    project_id = (body.get("project_id") or "").strip()
+    runtime_sa_id = (body.get("runtime_sa") or "").strip()
+    display_name = (body.get("display_name") or "").strip() or "Empire runtime"
+    extra_apis_keys = body.get("extra_apis") or []
+    extra_bindings = body.get("extra_bindings") or []
+
+    if body.get("confirm") != "I_ACKNOWLEDGE":
+        raise HTTPException(
+            status_code=400,
+            detail='body must include {"confirm": "I_ACKNOWLEDGE"} for any mutation',
+        )
+    if not project_id or not runtime_sa_id:
+        raise HTTPException(status_code=400, detail="project_id and runtime_sa required")
+
+    # API list = standard + opt-ins
+    extra_apis = []
+    for key in extra_apis_keys:
+        if isinstance(key, str) and key in _OPTIONAL_APIS:
+            extra_apis.append(_OPTIONAL_APIS[key])
+    apis_to_enable = list(dict.fromkeys(_STANDARD_APIS + extra_apis))
+
+    # 1. Enable APIs
+    api_results = _enable_apis(project_id, apis_to_enable)
+
+    # 2. Create runtime SA
+    sa_result = _ensure_runtime_sa(project_id, runtime_sa_id, display_name)
+    runtime_email = sa_result.get("email") or (
+        f"{runtime_sa_id}@{project_id}.iam.gserviceaccount.com"
+    )
+
+    # 3. Grant project-level bindings
+    base_bindings = [
+        # Runtime SA can read its own project (resource manager etc.)
+        {"member": f"serviceAccount:{runtime_email}",
+         "role": "roles/logging.logWriter"},
+        {"member": f"serviceAccount:{runtime_email}",
+         "role": "roles/monitoring.metricWriter"},
+        {"member": f"serviceAccount:{runtime_email}",
+         "role": "roles/cloudtrace.agent"},
+    ]
+    binding_results: list[dict[str, Any]] = []
+    for b in base_bindings + list(extra_bindings):
+        member = b.get("member")
+        role = b.get("role")
+        if not member or not role:
+            binding_results.append({"status": "error", "error": "member+role required",
+                                    "binding": b})
+            continue
+        binding_results.append(_grant_project_role(project_id, member, role))
+
+    # 4. Audit
+    audit_row = {
+        "audit_id": __import__("uuid").uuid4().hex,
+        "agent": "technical-master-ai",
+        "event": "bootstrap_project",
+        "severity": "warn",
+        "data_json": json.dumps({
+            "project_id": project_id,
+            "runtime_email": runtime_email,
+            "api_results": api_results,
+            "binding_results": binding_results,
+        }, default=str),
+        "caller_email": caller,
+        "logged_at": _now_iso(),
+    }
+    try:
+        client = _bq()
+        _ensure_table(client)
+        client.insert_rows_json(
+            bigquery.DatasetReference(GCP_PROJECT, BQ_DATASET).table(BQ_AUDIT_TABLE),
+            [audit_row],
+        )
+    except Exception as exc:
+        logger.warning("bootstrap audit write failed: %s", exc)
+
+    return {
+        "project_id": project_id,
+        "runtime_email": runtime_email,
+        "apis": api_results,
+        "service_account": sa_result,
+        "bindings": binding_results,
+        "audit_id": audit_row["audit_id"],
+        "timestamp": _now_iso(),
+    }

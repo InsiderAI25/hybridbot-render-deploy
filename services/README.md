@@ -37,6 +37,8 @@ gcloud run deploy <agent> \
 | `monique-controller/` | 12-hour cycle orchestrator | `/cycle/{tick,status,history}` |
 | `technical-master-ai/` | Central audit ledger | `/audit/{log,bulk,query}` |
 | `gemini-coach/` | Vertex AI `gemini-3.1-pro-preview` wrapper | `/advise`, `/review`, `/suggest-fix`, `/coach` |
+| `domain-control/` | Namecheap + Cloud DNS + Unstoppable Web3 records | `/domains/inventory`, `/domains/renew`, `/dns/upsert`, `/web3/update` |
+| `billing-survival/` | GCP cost + Stripe revenue + runway alerts | `/survival/snapshot`, `/survival/forecast`, `/survival/pay-bill` |
 | `_agent_template/` | Skeleton for the remaining agents (Sharp OG, Newton, Aegis, Sentinel, etc.) | `/sync-agent`, `/cycle/sync`, `/audit/forward` |
 
 ## Architecture rules every service obeys
@@ -73,4 +75,6 @@ gcloud run deploy <agent> \
 | monique-controller | 90% | Cycle scheduling assumes Cloud Scheduler hits `/cycle/tick`. If you use Workflows or another trigger, swap the auth dependency. |
 | technical-master-ai | 92% | `tma_audit_log` schema declared; verify against live BQ. |
 | gemini-coach | 85% | Model name `gemini-3.1-pro-preview` and `VERTEX_AI_LOCATION=global` come from the directive. If your Vertex AI project doesn't have access to that exact model, override `GEMINI_MODEL`. |
+| domain-control | 82% | Namecheap XML response parsing matches docs but unverified live; Unstoppable PATCH endpoint shape may need adjustment after first call (see service README). |
+| billing-survival | 85% | Stripe charges sum + GCP billing export read are well-understood; `pay-bill` deliberately does not execute payments. |
 | _agent_template | 95% | Generic skeleton; nothing controversial. |

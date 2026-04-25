@@ -51,8 +51,10 @@ hybridbot-render-deploy/        # repo name is historical — Cloud Run only
     ├── genesis-open-brain/     # Proprietary agent-only memory + BQ
     ├── monique-ceo/            # 51% authority + KMS-signed JWT issuance
     ├── monique-controller/     # 12-hour cycle orchestrator
-    ├── technical-master-ai/    # Central audit ledger
-    └── gemini-coach/           # Vertex AI gemini-3.1-pro-preview wrapper
+    ├── technical-master-ai/    # Central audit ledger + project bootstrap
+    ├── gemini-coach/           # Vertex AI gemini-3.1-pro-preview wrapper
+    ├── domain-control/         # Namecheap + Cloud DNS + Unstoppable Web3
+    └── billing-survival/       # GCP cost + Stripe revenue + runway alerts
 ```
 
 ## Endpoints

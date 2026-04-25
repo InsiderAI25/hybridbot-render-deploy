@@ -278,9 +278,47 @@ implementations the owner can diff/copy/replace into the live agents.
    tables under those names, the inserts will error — drop or rename the
    conflicting tables first.
 
+## Follow-up commit: TMA on his job + 4 unused projects + survival plan
+
+Owner directive: get TMA on his job, fix the 4 unused projects, fix the
+service-account-email issue, and lay out a plan for the empire to be
+self-sustaining in 5 days.
+
+The 4 unused projects are: `genesis-ai-staging`, `genesis-ai-dev`,
+`genesis-ai-sandbox`, `genesis-ai-domain-control` (the "sys-something"
+big-numbered project).
+
+### TMA hardening
+- Fixed SA-email allowlist bug — default Compute Engine SAs
+  (`<num>-compute@developer.gserviceaccount.com`) were getting 403 on
+  every audit write because the allowlist only matched user-managed SA
+  emails. Added `AUDIT_WRITE_PROJECT_NUMBERS` env. Verified with 9
+  inline test cases.
+- Added read-only audit endpoints: `/admin/projects`,
+  `/admin/services`, `/admin/service-accounts`, `/admin/iam-bindings`,
+  `/admin/recommend-cleanup`. `/admin/recommend-cleanup` is the
+  one-call answer to "which projects should be deleted/repurposed."
+- Added privileged `/admin/bootstrap-project` — enables APIs, creates
+  the runtime SA, grants base IAM. Idempotent. Requires
+  `confirm: "I_ACKNOWLEDGE"` in body so curl-typos can't trigger
+  IAM mutations. All operations audited.
+
+### Two new services
+| Service | Purpose | Confidence |
+|---------|---------|------------|
+| `services/domain-control/` | Namecheap renewal + Cloud DNS upsert + Unstoppable Web3 record updates. Owns `genesis-ai-domain-control`. | 82% |
+| `services/billing-survival/` | GCP cost + Stripe revenue + runway computation. `/survival/pay-bill` is a *proposal* (opens a Monique CEO decision); does NOT execute payments. | 85% |
+
+### Operations plan
+Added `OPERATIONS_PLAN.md` — 5-day execution checklist with
+day-by-day done-when criteria, tied to the code in this repo. Honest
+section on what's NOT in the plan: wallet-signed Web3 ownership
+transfers, autonomous money-moving executor, and the remaining ~30
+named agents (bootstrap each from `services/_agent_template/`).
+
 ## Sign-off
 
-Total fixes applied: **23 (MFM) + Render retirement + 6 peer-service references**
-Confidence ≥ 90%: 20 (MFM) + Render edits + 4 services (Open Brain, Controller, TMA, agent template)
-Confidence 80–89% (flagged): 3 (F-1, F-2, F-3) + 2 services (Monique CEO JWT shape, Gemini Coach model assumption)
-Out-of-scope items requiring expanded access: live editing of agents in other repos. See top of file.
+Total fixes applied: 23 (MFM) + Render retirement + 6 peer services + TMA hardening + 2 new services + ops plan
+Confidence ≥ 90%: 20 (MFM) + Render edits + 4 services (Open Brain, Controller, TMA, agent template) + TMA SA-email fix + OPERATIONS_PLAN.md
+Confidence 80–89% (flagged): 3 (F-1, F-2, F-3) + 4 services (Monique CEO JWT shape, Gemini Coach model assumption, domain-control Unstoppable PATCH shape, billing-survival pay-bill execution path left intentionally manual)
+Out-of-scope: live editing of agents in other repos; wallet-signed Web3 ops; autonomous money-moving executor.
