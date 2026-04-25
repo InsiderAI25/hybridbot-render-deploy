@@ -1,1 +1,1 @@
-web: gunicorn render_main:app
+web: uvicorn render_main:app --host 0.0.0.0 --port $PORT --workers 1
