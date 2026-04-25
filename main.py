@@ -1,7 +1,7 @@
 """
 HybridBot / Monique File Manager — FastAPI entry point.
 
-This is the Cloud Run + Render entry. It exposes:
+Cloud Run only. Exposes:
 
   * GET  /            — banner
   * GET  /health      — liveness probe (also reports MFM scan state)
@@ -112,7 +112,7 @@ app = FastAPI(
 def index() -> dict[str, Any]:
     return {
         "service": config.AGENT_NAME,
-        "message": "HybridBot Render Deployment Live",
+        "message": "HybridBot Cloud Run Deployment Live",
         "revision": config.SERVICE_VERSION,
         "region": config.GCP_REGION,
     }
@@ -429,14 +429,14 @@ def scan_status() -> dict[str, Any]:
 
 
 # ────────────────────────────────────────────────────────────────────
-# Local entry — never used in Cloud Run / Render (uvicorn runs us via CMD).
+# Local entry — never used in Cloud Run (the Dockerfile CMD invokes uvicorn).
 # ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "render_main:app",
+        "main:app",
         host="0.0.0.0",
         port=int(os.environ.get("PORT", "8080")),
         workers=1,

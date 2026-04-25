@@ -1,8 +1,8 @@
 """
 HybridBot / Monique File Manager configuration.
 
-All values are env-driven so the same image can run on Cloud Run, Render, and
-locally without code changes. Defaults reflect the production architecture
+All values are env-driven so the same image can run on Cloud Run and locally
+without code changes. Defaults reflect the production architecture
 documented in CLAUDE.md and the Genesis AI Empire directives:
 
   * Gemini model: gemini-3.1-pro-preview (NEVER 2.5)

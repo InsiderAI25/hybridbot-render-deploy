@@ -4,9 +4,15 @@
 
 **HybridBot / Monique File Manager (MFM)** — FastAPI service that fronts the
 Genesis AI Empire's file-ingestion and agent-sync pipeline. Runs on Cloud Run
-(primary) and Render (legacy/secondary). Monique CEO holds 51% voting authority
-within the empire; this service is a worker that obeys Coordinator V2 routing
-and writes truth to BigQuery via Genesis Open Brain.
+(`us-central1`). Monique CEO holds 51% voting authority within the empire;
+this service is a worker that obeys Coordinator V2 routing and writes truth
+to BigQuery via Genesis Open Brain.
+
+> Repository name `hybridbot-render-deploy` is historical. The Render path
+> was retired; everything deploys to Cloud Run now. Custom domains live on
+> Namecheap and Unstoppable Domains and are mapped to Cloud Run via DNS
+> (traditional .com) or Web3 gateways (Unstoppable Web3 TLDs). See
+> `DEPLOYMENT.md` for both paths.
 
 **Owner:** InsiderAI25 (sportsai@insidersportsai.com)
 **Legal entity:** Insider AI Agency Holdings LLC
@@ -26,19 +32,18 @@ and writes truth to BigQuery via Genesis Open Brain.
 ## Repository Structure
 
 ```
-hybridbot-render-deploy/
+hybridbot-render-deploy/        # repo name is historical — Cloud Run only
 ├── CLAUDE.md                   # This file
 ├── AUDIT_REPORT.md             # Stub-elimination audit + confidence flags
-├── DEPLOYMENT.md               # gcloud + Render deploy commands
+├── DEPLOYMENT.md               # gcloud run + custom-domain mapping
 ├── Dockerfile                  # Cloud Run image (FastAPI + Uvicorn)
-├── Procfile                    # Render entry (uvicorn, no gunicorn)
 ├── .dockerignore
 ├── .gitignore
 ├── auth.py                     # Google ID token helpers (service-to-service)
 ├── config.py                   # Env-driven config + naming-lock guard
 ├── open_brain.py               # /memory/retrieve + /memory/store client
 ├── monique_file_manager.py     # Sovereign-Dispatch ingestion engine
-├── render_main.py              # FastAPI app entry (Cloud Run + Render)
+├── main.py                     # FastAPI app entry (Cloud Run)
 └── requirements.txt            # Pinned deps (no flask, no gunicorn)
 ```
 
@@ -70,7 +75,7 @@ to start the process if `kheprahel@gmail.com` ever lands in
 ## Architecture rules (absolute)
 
 - FastAPI + Uvicorn only. No Flask, no Gunicorn.
-- Cloud Run CMD: `exec uvicorn render_main:app --host 0.0.0.0 --port $PORT --workers 1`
+- Cloud Run CMD: `exec uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1`
 - Region: `us-central1`
 - Gemini: `gemini-3.1-pro-preview`, Vertex AI location `global`
 - Money handled with `decimal.Decimal`, never float
@@ -100,7 +105,7 @@ Human veto window: 24 hours.
 
 ```bash
 pip install -r requirements.txt
-uvicorn render_main:app --reload --port 8080
+uvicorn main:app --reload --port 8080
 ```
 
 Without `OPEN_BRAIN_URL` / `NEWTON_URL` set, the Open Brain and Newton calls
@@ -127,7 +132,7 @@ AGENT_REGISTRY=sharp-og=https://...,newton-ai=https://...
 
 ## Important notes for AI assistants
 
-- **Never** rename `app` in `render_main.py` (Procfile + Dockerfile reference it).
+- **Never** rename `app` in `main.py` (Dockerfile CMD references it).
 - **Never** add `gunicorn` to `requirements.txt`. Architecture rule.
 - **Never** add `kheprahel@gmail.com` to any agent-accessible list.
 - **Never** hardcode a Cloud Run URL. Use `AGENT_REGISTRY` / dedicated env vars.

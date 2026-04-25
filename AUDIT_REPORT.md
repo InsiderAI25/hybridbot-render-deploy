@@ -190,9 +190,34 @@ curl -s -H "Authorization: Bearer $(gcloud auth print-identity-token --audiences
 ```
 Expect to see `service_started` and (after a scan) `sovereign_dispatch_complete`.
 
+## Follow-up commit: Render path retired
+
+After the initial commit, the owner confirmed Render is no longer in use —
+all deploys go to Cloud Run, and custom domains live on Namecheap and
+Unstoppable Domains. A second commit on this branch:
+
+- Deletes `Procfile` (Render-only entry).
+- Renames `render_main.py` → `main.py` to match the directive's CMD spec
+  (`exec uvicorn main:app ...`) and removes the legacy filename.
+- Updates `Dockerfile` CMD to `main:app`.
+- Removes the "Render.com" section from `DEPLOYMENT.md` and replaces it
+  with a "Custom domains" section that handles two cases:
+  - **Traditional DNS** (Namecheap + Unstoppable `.com`) via either Cloud
+    Run domain mapping or external LB + Serverless NEG.
+  - **Unstoppable Web3 TLDs** (`.crypto`, `.x`, `.nft`, etc.) which do
+    not resolve via DNS and require IPFS / gateway-based strategies; the
+    doc recommends keeping the agent API on `.com` and treating Web3
+    TLDs as separate front-end concerns.
+- Updates CLAUDE.md and AUDIT_REPORT.md to reference `main.py` and the
+  Cloud-Run-only stance.
+
+The repository name `hybridbot-render-deploy` is now historical. Renaming
+the repo on GitHub is a separate manual action; nothing in the code
+depends on the repo name.
+
 ## Sign-off
 
-Total fixes applied: **23**
-Confidence ≥ 90%: **20**
+Total fixes applied: **23 + Render retirement**
+Confidence ≥ 90%: **20** plus the Render-retirement edits (95%+).
 Confidence 80–89% (flagged above): **3** (F-1, F-2, F-3)
 Out-of-scope items requiring expanded access: see top of file.

@@ -7,8 +7,8 @@ JSON key file. `google.auth.default()` returns the runtime credentials and
 matches the target service URL. The receiving Cloud Run service validates that
 audience against its own URL.
 
-Locally (for tests / Render), GOOGLE_APPLICATION_CREDENTIALS may be set; the
-same helpers work because google-auth picks that up via ADC.
+Locally (for tests), GOOGLE_APPLICATION_CREDENTIALS may be set; the same
+helpers work because google-auth picks that up via ADC.
 """
 
 from __future__ import annotations

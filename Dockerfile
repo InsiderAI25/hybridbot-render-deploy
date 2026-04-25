@@ -1,4 +1,4 @@
-# Cloud Run / generic OCI image for HybridBot / Monique File Manager.
+# Cloud Run image for HybridBot / Monique File Manager.
 # FastAPI + Uvicorn only — Gunicorn is permanently banned per architecture rules.
 
 FROM python:3.12-slim
@@ -26,4 +26,4 @@ USER appuser
 EXPOSE 8080
 
 # Cloud Run honours $PORT; the directive's exact CMD spec.
-CMD exec uvicorn render_main:app --host 0.0.0.0 --port $PORT --workers 1
+CMD exec uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
