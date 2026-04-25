@@ -36,15 +36,23 @@ hybridbot-render-deploy/        # repo name is historical — Cloud Run only
 ├── CLAUDE.md                   # This file
 ├── AUDIT_REPORT.md             # Stub-elimination audit + confidence flags
 ├── DEPLOYMENT.md               # gcloud run + custom-domain mapping
-├── Dockerfile                  # Cloud Run image (FastAPI + Uvicorn)
+├── Dockerfile                  # Cloud Run image for MFM (FastAPI + Uvicorn)
 ├── .dockerignore
 ├── .gitignore
 ├── auth.py                     # Google ID token helpers (service-to-service)
 ├── config.py                   # Env-driven config + naming-lock guard
 ├── open_brain.py               # /memory/retrieve + /memory/store client
 ├── monique_file_manager.py     # Sovereign-Dispatch ingestion engine
-├── main.py                     # FastAPI app entry (Cloud Run)
-└── requirements.txt            # Pinned deps (no flask, no gunicorn)
+├── main.py                     # MFM FastAPI entry (Cloud Run)
+├── requirements.txt            # Pinned MFM deps (no flask, no gunicorn)
+└── services/                   # Reference implementations of peer agents
+    ├── README.md
+    ├── _agent_template/        # Skeleton for the remaining empire agents
+    ├── genesis-open-brain/     # Proprietary agent-only memory + BQ
+    ├── monique-ceo/            # 51% authority + KMS-signed JWT issuance
+    ├── monique-controller/     # 12-hour cycle orchestrator
+    ├── technical-master-ai/    # Central audit ledger
+    └── gemini-coach/           # Vertex AI gemini-3.1-pro-preview wrapper
 ```
 
 ## Endpoints
