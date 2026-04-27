@@ -2,9 +2,7 @@ fastapi==0.115.4
 uvicorn[standard]==0.32.0
 httpx==0.27.2
 google-auth==2.35.0
-google-api-python-client==2.149.0
-google-auth-httplib2==0.2.0
-google-auth-oauthlib==1.2.1
 google-cloud-bigquery==3.27.0
-google-cloud-pubsub==2.27.1
+google-cloud-kms==3.1.0
 google-api-core==2.22.0
+cryptography==43.0.3

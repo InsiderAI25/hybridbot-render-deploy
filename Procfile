@@ -1,1 +1,0 @@
-web: gunicorn render_main:app

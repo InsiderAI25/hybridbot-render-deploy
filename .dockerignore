@@ -1,0 +1,13 @@
+.git
+.gitignore
+.dockerignore
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+tokens/
+*.md
+Dockerfile
+Procfile
